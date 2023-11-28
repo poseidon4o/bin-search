@@ -34,12 +34,12 @@ inline void stlLowerBoundTransform(const AlignedIntArray &hayStack, const Aligne
 
 inline void stlRanges(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
 	std::ranges::transform(needles, indices.begin(), [&hayStack](int value) {
-		const auto idx = std::distance(hayStack.begin(), std::ranges::lower_bound(hayStack, value));
+		const int idx = std::distance(hayStack.begin(), std::ranges::lower_bound(hayStack, value));
 
-		if (idx == hayStack.getCount() || hayStack[int(idx)] != value) {
+		if (idx == hayStack.getCount() || hayStack[idx] != value) {
 			return NOT_FOUND;
 		} else {
-			return int(idx);
+			return idx;
 		}
 	});
 }
