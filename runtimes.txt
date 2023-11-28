@@ -75,16 +75,49 @@ Running speed test for 6.bsearch, 1000 repeats speedup best [48.389706] average 
 Running speed test for 7.bsearch, 1000 repeats speedup best [39.058394] average [39.141378]
 Running speed test for 8.bsearch, 1000 repeats speedup best [41.500000] average [34.861779]
 
-+ Speed tests for avx256EytzingerRangeCheck<15> ... 32768
-Running speed test for 0.bsearch, 400 repeats speedup best [6.949422] average [6.391715]
-Running speed test for 1.bsearch, 400 repeats speedup best [4.103642] average [4.121386]
-Running speed test for 2.bsearch, 1000 repeats speedup best [0.478828] average [0.502975]
-Running speed test for 3.bsearch, 1000 repeats speedup best [0.539597] average [0.555922]
-Running speed test for 4.bsearch, 400 repeats speedup best [0.974359] average [1.125852]
-Running speed test for 5.bsearch, 1000 repeats speedup best [35.153285] average [35.024593]
-Running speed test for 6.bsearch, 1000 repeats speedup best [48.043796] average [48.325406]
-Running speed test for 7.bsearch, 1000 repeats speedup best [39.058394] average [38.955896]
-Running speed test for 8.bsearch, 1000 repeats speedup best [41.500000] average [33.713828]
++ Speed tests for avx256EytzingerRangeCheck<15, 8> ...
+Running speed test for 0.bsearch, 400 repeats speedup best [6.949271] average [6.607259]
+Running speed test for 1.bsearch, 400 repeats speedup best [3.994920] average [3.963581]
+Running speed test for 2.bsearch, 1000 repeats speedup best [0.478779] average [0.509993]
+Running speed test for 3.bsearch, 1000 repeats speedup best [0.550260] average [0.558563]
+Running speed test for 4.bsearch, 400 repeats speedup best [1.000000] average [1.027104]
+Running speed test for 5.bsearch, 1000 repeats speedup best [34.522388] average [32.757456]
+Running speed test for 6.bsearch, 1000 repeats speedup best [48.126866] average [48.718673]
+Running speed test for 7.bsearch, 1000 repeats speedup best [37.525547] average [39.377325]
+Running speed test for 8.bsearch, 1000 repeats speedup best [41.500000] average [33.951406]
+
++ Speed tests for avx256EytzingerRangeCheck<15, 128> ...
+Running speed test for 0.bsearch, 400 repeats speedup best [6.436033] average [5.599028]
+Running speed test for 1.bsearch, 400 repeats speedup best [4.163630] average [4.205857]
+Running speed test for 2.bsearch, 1000 repeats speedup best [0.508126] average [0.549050]
+Running speed test for 3.bsearch, 1000 repeats speedup best [0.570615] average [0.569454]
+Running speed test for 4.bsearch, 400 repeats speedup best [1.026316] average [1.062139]
+Running speed test for 5.bsearch, 1000 repeats speedup best [35.411765] average [35.292305]
+Running speed test for 6.bsearch, 1000 repeats speedup best [48.014599] average [48.031480]
+Running speed test for 7.bsearch, 1000 repeats speedup best [41.014599] average [41.962415]
+Running speed test for 8.bsearch, 1000 repeats speedup best [44.000000] average [36.825703]
+
++ Speed tests for avx256EytzingerRangeCheck<15, 256> ...
+Running speed test for 0.bsearch, 400 repeats speedup best [6.877247] average [6.135606]
+Running speed test for 1.bsearch, 400 repeats speedup best [4.216758] average [4.314856]
+Running speed test for 2.bsearch, 1000 repeats speedup best [0.511990] average [0.553764]
+Running speed test for 3.bsearch, 1000 repeats speedup best [0.564390] average [0.573114]
+Running speed test for 4.bsearch, 400 repeats speedup best [1.000000] average [1.012627]
+Running speed test for 5.bsearch, 1000 repeats speedup best [35.208955] average [35.401304]
+Running speed test for 6.bsearch, 1000 repeats speedup best [48.126866] average [44.867040]
+Running speed test for 7.bsearch, 1000 repeats speedup best [41.194030] average [42.786281]
+Running speed test for 8.bsearch, 1000 repeats speedup best [44.000000] average [33.171288]
+
++ Speed tests for avx256EytzingerRangeCheck<15, 512> ...
+Running speed test for 0.bsearch, 400 repeats speedup best [6.912429] average [6.425834]
+Running speed test for 1.bsearch, 400 repeats speedup best [4.082119] average [4.106666]
+Running speed test for 2.bsearch, 1000 repeats speedup best [0.494562] average [0.528392]
+Running speed test for 3.bsearch, 1000 repeats speedup best [0.565371] average [0.571786]
+Running speed test for 4.bsearch, 400 repeats speedup best [0.948718] average [0.992196]
+Running speed test for 5.bsearch, 1000 repeats speedup best [34.955556] average [35.077440]
+Running speed test for 6.bsearch, 1000 repeats speedup best [46.844444] average [47.936609]
+Running speed test for 7.bsearch, 1000 repeats speedup best [38.358209] average [39.195276]
+Running speed test for 8.bsearch, 1000 repeats speedup best [41.500000] average [33.688400]
 
 + Speed tests for avx256EytzingerRangeCheck<16> ... 65536
 Running speed test for 0.bsearch, 400 repeats speedup best [7.121496] average [6.538696]

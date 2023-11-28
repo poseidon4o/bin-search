@@ -99,7 +99,7 @@ inline void serialFinishSIMD(int c, int needlesCount, const AlignedIntArray &hay
 }
 }
 
-template <int BinStepCount>
+template <int BinStepCount, int InRangeQueueSize>
 inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
 	const int haystackCount = int(hayStack.count);
 	const int needlesCount = int(needles.count);
@@ -134,20 +134,20 @@ inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const Ali
 	const __m256i haystackCountV = _mm256_set1_epi32(haystackCount);
 
 	if (useSIMD) {
-		alignas(32) int needleQueue[8];
-		alignas(32) int needleIndices[8];
+		alignas(32) int needleQueueChunks[InRangeQueueSize];
+		alignas(32) int needleIndicesChunks[InRangeQueueSize];
 
-		while (c < needlesCount) {
+		while (c + InRangeQueueSize < needlesCount) {
 			int saved = c;
 			int q = 0;
 
-			// produce 8 needles not outside of haystack data range
-			// implements if (value < lowCut || value > highCut) { but for 8 values
-			while (q < 8 && c < needlesCount) {
+			// produce InRangeQueueSize needles not outside of haystack data range
+			// implements if (value < lowCut || value > highCut) { but for InRangeQueueSize values
+			while (q < InRangeQueueSize && c < needlesCount) {
 				const int candidate = needles[c];
 				if (candidate >= lowCut && candidate <= highCut) {
-					needleQueue[q] = candidate;
-					needleIndices[q] = c; // keep from where this needle is loaded
+					needleQueueChunks[q] = candidate;
+					needleIndicesChunks[q] = c; // keep from where this needle is loaded
 					q++;
 				} else {
 					indices[c] = NOT_FOUND;
@@ -155,70 +155,72 @@ inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const Ali
 				c++;
 			}
 			// not enough needles, give up and use non simd code to finish
-			if (q < 8) {
+			if (q < InRangeQueueSize) {
 				c = saved;
 				break;
 			}
 
-			const __m256i value = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(needleQueue));
-			__m256i left = zeros;
-			__m256i count = haystackCountV;
-			__m256i binIndex = ones;
-			int step = 0;
+			for (int chunk = 0; chunk < InRangeQueueSize / 8; chunk++) {
+				const int *needleQueue = needleQueueChunks + chunk * 8;
+				const int *needleIndices = needleIndicesChunks + chunk * 8;
+				const __m256i value = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(needleQueue));
+				__m256i left = zeros;
+				__m256i count = haystackCountV;
+				__m256i binIndex = ones;
+				int step = 0;
 
-			// some lanes can finish the search earlier, keep mask of non finished searches
-			__m256i positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
-			while (_mm256_movemask_ps(_mm256_castsi256_ps(positiveCountMask)) != 0) {
-				// const int half = count / 2;
-				const __m256i half = _mm256_srli_epi32(count, 1);
+				// some lanes can finish the search earlier, keep mask of non finished searches
+				__m256i positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
+				while (_mm256_movemask_ps(_mm256_castsi256_ps(positiveCountMask)) != 0) {
+					// const int half = count / 2;
+					const __m256i half = _mm256_srli_epi32(count, 1);
 
-				// const int testValue = step < stepCount ? bin[binIdx] : hayStack[left + half];
-				__m256i testValue;
-				const __m256i leftHalf = _mm256_add_epi32(left, half);
-				if (step < stepCount) {
-					testValue = _mm256_i32gather_epi32(bin, binIndex, sizeof(int));
-				} else {
-					testValue = _mm256_i32gather_epi32(haystackPtr, leftHalf, sizeof(int));
+					// const int testValue = step < stepCount ? bin[binIdx] : hayStack[left + half];
+					__m256i testValue;
+					const __m256i leftHalf = _mm256_add_epi32(left, half);
+					if (step < stepCount) {
+						testValue = _mm256_i32gather_epi32(bin, binIndex, sizeof(int));
+					} else {
+						testValue = _mm256_i32gather_epi32(haystackPtr, leftHalf, sizeof(int));
+					}
+					++step;
+
+					// if (testValue < value) {
+					const __m256i gt = _mm256_cmpgt_epi32(testValue, value);
+					const __m256i eq = _mm256_cmpeq_epi32(testValue, value);
+					const __m256i ltMask = _mm256_andnot_si256(_mm256_castps_si256(_mm256_or_ps(_mm256_castsi256_ps(gt), _mm256_castsi256_ps(eq))), neg1);
+
+					// true branch
+					const __m256i lt_left = _mm256_add_epi32(leftHalf, ones);
+					const __m256i lt_count = _mm256_sub_epi32(count, _mm256_add_epi32(half, ones));
+					const __m256i lt_binIdx = _mm256_add_epi32(_mm256_slli_epi32(binIndex, 1), ones);
+
+					// false branch
+					const __m256i gt_eq_binIndex = _mm256_slli_epi32(binIndex, 1);
+
+					// mix with result
+					binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, ltMask);
+					count = masked_blend(lt_count, half, ltMask);
+					left = masked_blend(lt_left, left, ltMask);
+
+					// update non finished lanes
+					positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
 				}
-				++step;
 
-				// if (testValue < value) {
-				const __m256i gt = _mm256_cmpgt_epi32(testValue, value);
-				const __m256i eq = _mm256_cmpeq_epi32(testValue, value);
-				const __m256i ltMask = _mm256_andnot_si256(_mm256_castps_si256(_mm256_or_ps(_mm256_castsi256_ps(gt), _mm256_castsi256_ps(eq))), neg1);
+				const __m256i haystackLeft = _mm256_i32gather_epi32(haystackPtr, left, sizeof(int));
+				// if (hayStack[left] == value) {
+				const __m256i eqMask = _mm256_cmpeq_epi32(value, haystackLeft);
+				const __m256i storeResult = masked_blend(left, neg1, eqMask);
 
-				// true branch
-				const __m256i lt_left = _mm256_add_epi32(leftHalf, ones);
-				const __m256i lt_count = _mm256_sub_epi32(count, _mm256_add_epi32(half, ones));
-				const __m256i lt_binIdx = _mm256_add_epi32(_mm256_slli_epi32(binIndex, 1), ones);
-
-				// false branch
-				const __m256i gt_eq_binIndex = _mm256_slli_epi32(binIndex, 1);
-
-				// mix with result
-				binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, ltMask);
-				count = masked_blend(lt_count, half, ltMask);
-				left = masked_blend(lt_left, left, ltMask);
-
-				// update non finished lanes
-				positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
-			}
-
-			const __m256i haystackLeft = _mm256_i32gather_epi32(haystackPtr, left, sizeof(int));
-			// if (hayStack[left] == value) {
-			const __m256i eqMask = _mm256_cmpeq_epi32(value, haystackLeft);
-			const __m256i storeResult = masked_blend(left, neg1, eqMask);
-
-			// search values are not consecutive, scatter according to their indices
-			// there is no scatter_epi32 in AVX/AVX2
-			alignas(32) int writeBack[8];
-			_mm256_store_si256(reinterpret_cast<__m256i *>(writeBack), storeResult);
-			for (int r = 0; r < 8; r++) {
-				indicesPtr[needleIndices[r]] = writeBack[r];
+				// search values are not consecutive, scatter according to their indices
+				// there is no scatter_epi32 in AVX/AVX2
+				alignas(32) int writeBack[8];
+				_mm256_store_si256(reinterpret_cast<__m256i *>(writeBack), storeResult);
+				for (int r = 0; r < 8; r++) {
+					indicesPtr[needleIndices[r]] = writeBack[r];
+				}
 			}
 		}
-		// undo last increment so that non simd version can finish remaining elements
-		c -= needlesCount % 8;
 	}
 
 	serialFinishSIMDEytzinger(c, needlesCount, stepCount, bin, hayStack, needles, indices);
