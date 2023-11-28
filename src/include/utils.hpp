@@ -303,6 +303,3 @@ void precomputeBin(const int *hayStack, const int size, int *bin, const int step
 		precomputeBin(hayStack + half + 1, size - half - 1, bin, stepCount, step + 1, binIdx * 2 + 1);
 	}
 }
-
-
-#define TEST_SEARCH betterSearchSIMD

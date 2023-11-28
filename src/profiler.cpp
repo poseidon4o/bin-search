@@ -1,7 +1,5 @@
 #include "utils.hpp"
-#include "baseline.hpp"
-#include "simd-avx256.hpp"
-
+#include "solution-picker.hpp"
 
 const int HEAP_SIZE = (1 << 14) + 1;
 

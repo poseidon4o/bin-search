@@ -12,115 +12,13 @@
 #include <filesystem>
 
 #include "utils.hpp"
-#include "baseline.hpp"
-#include "simd-avx256.hpp"
+#include "solution-picker.hpp"
 
-
-
-void betterSearch(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator);
-
-static void betterSearchMine(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
-	const int stepCount = 10;
-	int *allocBin = allocator.alloc<int>((1 << stepCount) - 1);
-	int *bin = allocBin - 1;
-	precomputeBin(hayStack, hayStack.count, bin, stepCount);
-
-	for (int c = 0; c < needles.count; c++) {
-		const int value = needles[c];
-
-		int left = 0;
-		int count = hayStack.count;
-		int binIdx = 1;
-		int step = 0;
-
-		while (count > 0) {
-			const int half = count / 2;
-
-			const int testValue = step < stepCount ? bin[binIdx] : hayStack[left + half];
-			++step;
-
-			if (testValue < value) {
-				left = left + half + 1;
-				count -= half + 1;
-				binIdx = binIdx * 2 + 1;
-			} else {
-				count = half;
-				binIdx = binIdx * 2;
-			}
-		}
-
-		if (hayStack[left] == value) {
-			indices[c] = left;
-		} else {
-			indices[c] = -1;
-		}
-	}
-
-	allocator.freeAll();
-}
-
-#if 0
-void runSmallTest() {
-	struct {
-		int hCount;
-		int qCount;
-		DataType type;
-	} testInfo = {
-		8, 8, uniform,
-	};
-	AlignedArrayPtr<int> hayStack(testInfo.hCount);
-	AlignedArrayPtr<int> needles(testInfo.qCount);
-	initData(hayStack, needles, testInfo.type);
-	std::sort(hayStack.get(), hayStack + hayStack.getCount());
-	AlignedArrayPtr<int> indices(needles.getCount());
-	AlignedArrayPtr<uint8_t> heap(1 << 13);
-	StackAllocator allocator(heap, heap.count);
-
-	indices.memset(NOT_SEARCHED);
-	allocator.zeroAll();
-	TEST_SEARCH(hayStack, needles, indices, allocator);
-	if (verify(hayStack, needles, indices) != -1) {
-		printf("Failed to verify base betterSearch!\n");
-		return;
-	}
-
-	indices.memset(NOT_SEARCHED);
-	binarySearch(hayStack, needles, indices);
-	if (verify(hayStack, needles, indices) != -1) {
-		printf("Failed to verify base binarySearch!\n");
-	}
-}
-#endif
 const int HEAP_SIZE = (1 << 14) + 1;
-
-bool profile(int index) {
-
-	AlignedArrayPtr<int> hayStack;
-	AlignedArrayPtr<int> needles;
-
-	char fname[64] = { 0, };
-	snprintf(fname, sizeof(fname), "%d.bsearch", index);
-
-	if (!loadFromFile(hayStack, needles, fname)) {
-		return false;
-	}
-
-	printf("Checking %s... ", fname);
-
-	AlignedArrayPtr<int> indices(needles.getCount());
-	AlignedArrayPtr<uint8_t> heap(HEAP_SIZE);
-
-	StackAllocator allocator(heap, HEAP_SIZE);
-	indices.memset(NOT_SEARCHED);
-	allocator.zeroAll();
-
-	for (int c = 0; c < 10000; c++) {
-		TEST_SEARCH(hayStack, needles, indices, allocator);
-	}
-}
 
 
 int main() {
+	
 	printf("+ Correctness tests ... \n");
 
 	const int64_t searches = 400ll * (1 << 26);
@@ -163,7 +61,7 @@ int main() {
 		++testCaseCount;
 	}
 
-	printf("+ Speed tests ... \n");
+	printf("+ Speed tests for %s ... \n", TEST_NAME);
 
 	for (int r = 0; r < testCaseCount; r++) {
 		AlignedArrayPtr<int> hayStack;
