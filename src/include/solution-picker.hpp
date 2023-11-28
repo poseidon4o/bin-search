@@ -1,10 +1,11 @@
 #pragma once
 
-#include "baseline.hpp"
-#include "simd-avx256.hpp"
-#include "eytzinger.hpp"
+#include "solutions/baseline.hpp"
+#include "solutions/simd-avx256.hpp"
+#include "solutions/eytzinger.hpp"
+#include "solutions/stl.hpp"
 
-#define TEST_SEARCH eytzingerSearchRangeCheck
+#define TEST_SEARCH avx256
 
 #define STRINGIZE2(a) #a
 #define STRINGIZE(a) STRINGIZE2(a)

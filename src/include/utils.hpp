@@ -103,15 +103,15 @@ namespace {
 	struct AlignedArrayPtr {
 		void *allocated = nullptr;
 		T *aligned = nullptr;
-		int64_t count = -1;
+		int count = -1;
 
 		AlignedArrayPtr() = default;
 
-		AlignedArrayPtr(int64_t count) {
+		AlignedArrayPtr(int count) {
 			init(count);
 		}
 
-		void init(int64_t newCount) {
+		void init(int newCount) {
 			bassert(newCount > 0);
 			free(allocated);
 			aligned = alignedAlloc<T>(newCount, allocated);
@@ -142,8 +142,16 @@ namespace {
 			return aligned;
 		}
 
-		int64_t getCount() const {
+		int getCount() const {
 			return count;
+		}
+
+		T *begin() {
+			return aligned;
+		}
+
+		T *end() {
+			return aligned + count;
 		}
 
 		const T *begin() const {
