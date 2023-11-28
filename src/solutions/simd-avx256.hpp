@@ -99,7 +99,7 @@ inline void serialFinishSIMD(int c, int needlesCount, const AlignedIntArray &hay
 }
 }
 
-
+template <int BinStepCount>
 inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
 	const int haystackCount = int(hayStack.count);
 	const int needlesCount = int(needles.count);
@@ -115,7 +115,7 @@ inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const Ali
 	}
 
 	const bool useSIMD = (haystackCount > (1024 * 100)) && (needlesCount > 1024);
-	const int stepCount = useSIMD ? 1 : 0;
+	const int stepCount = useSIMD ? BinStepCount : 0;
 	int *indicesPtr = indices.aligned;
 	const int *haystackPtr = hayStack.aligned;
 
@@ -172,16 +172,13 @@ inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const Ali
 				// const int half = count / 2;
 				const __m256i half = _mm256_srli_epi32(count, 1);
 
-
 				// const int testValue = step < stepCount ? bin[binIdx] : hayStack[left + half];
 				__m256i testValue;
 				const __m256i leftHalf = _mm256_add_epi32(left, half);
 				if (step < stepCount) {
-					const __m256i safeBinIndex = masked_blend(binIndex, ones, positiveCountMask);
-					testValue = _mm256_i32gather_epi32(bin, safeBinIndex, sizeof(int));
+					testValue = _mm256_i32gather_epi32(bin, binIndex, sizeof(int));
 				} else {
-					const __m256i safeArrayIndex = masked_blend(leftHalf, zeros, positiveCountMask);
-					testValue = _mm256_i32gather_epi32(haystackPtr, safeArrayIndex, sizeof(int));
+					testValue = _mm256_i32gather_epi32(haystackPtr, leftHalf, sizeof(int));
 				}
 				++step;
 
@@ -189,8 +186,6 @@ inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const Ali
 				const __m256i gt = _mm256_cmpgt_epi32(testValue, value);
 				const __m256i eq = _mm256_cmpeq_epi32(testValue, value);
 				const __m256i ltMask = _mm256_andnot_si256(_mm256_castps_si256(_mm256_or_ps(_mm256_castsi256_ps(gt), _mm256_castsi256_ps(eq))), neg1);
-				// mask by non finished lanes
-				const __m256i lt_count_mask = _mm256_castps_si256(_mm256_and_ps(_mm256_castsi256_ps(ltMask), _mm256_castsi256_ps(positiveCountMask)));
 
 				// true branch
 				const __m256i lt_left = _mm256_add_epi32(leftHalf, ones);
@@ -201,9 +196,9 @@ inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const Ali
 				const __m256i gt_eq_binIndex = _mm256_slli_epi32(binIndex, 1);
 
 				// mix with result
-				binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, lt_count_mask);
-				count = masked_blend(lt_count, half, lt_count_mask);
-				left = masked_blend(lt_left, left, lt_count_mask);
+				binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, ltMask);
+				count = masked_blend(lt_count, half, ltMask);
+				left = masked_blend(lt_left, left, ltMask);
 
 				// update non finished lanes
 				positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
@@ -231,12 +226,13 @@ inline void avx256EytzingerRangeCheck(const AlignedIntArray &hayStack, const Ali
 	allocator.freeAll();
 }
 
+template <int BinStepCount>
 inline void avx256Eytzinger(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
 	const int haystackCount = int(hayStack.count);
 	const int needlesCount = int(needles.count);
 
 	const bool useSIMD = (haystackCount > (1024 * 100)) && (needlesCount > 1024);
-	const int stepCount = useSIMD ? 1 : 0;
+	const int stepCount = useSIMD ? BinStepCount : 0;
 	int *indicesPtr = indices.aligned;
 	const int *haystackPtr = hayStack.aligned;
 
@@ -268,42 +264,32 @@ inline void avx256Eytzinger(const AlignedIntArray &hayStack, const AlignedIntArr
 
 			// some lanes can finish the search earlier, keep mask of non finished searches
 			__m256i positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
+
 			while (_mm256_movemask_ps(_mm256_castsi256_ps(positiveCountMask)) != 0) {
 				// const int half = count / 2;
 				const __m256i half = _mm256_srli_epi32(count, 1);
 
-
-				// const int testValue = step < stepCount ? bin[binIdx] : hayStack[left + half];
-				__m256i testValue;
+				// const int testValue = hayStack[left + half];
 				const __m256i leftHalf = _mm256_add_epi32(left, half);
-				if (step < stepCount) {
-					const __m256i safeBinIndex = masked_blend(binIndex, ones, positiveCountMask);
-					testValue = _mm256_i32gather_epi32(bin, safeBinIndex, sizeof(int));
-				} else {
-					const __m256i safeArrayIndex = masked_blend(leftHalf, zeros, positiveCountMask);
-					testValue = _mm256_i32gather_epi32(haystackPtr, safeArrayIndex, sizeof(int));
-				}
-				++step;
+				const __m256i testValue = _mm256_i32gather_epi32(haystackPtr, leftHalf, sizeof(int));
 
 				// if (testValue < value) {
 				const __m256i gt = _mm256_cmpgt_epi32(testValue, value);
 				const __m256i eq = _mm256_cmpeq_epi32(testValue, value);
 				const __m256i ltMask = _mm256_andnot_si256(_mm256_castps_si256(_mm256_or_ps(_mm256_castsi256_ps(gt), _mm256_castsi256_ps(eq))), neg1);
-				// mask by non finished lanes
-				const __m256i lt_count_mask = _mm256_castps_si256(_mm256_and_ps(_mm256_castsi256_ps(ltMask), _mm256_castsi256_ps(positiveCountMask)));
 
 				// true branch
-				const __m256i lt_left = _mm256_add_epi32(leftHalf, ones);
-				const __m256i lt_count = _mm256_sub_epi32(count, _mm256_add_epi32(half, ones));
+				const __m256i lt_left = _mm256_add_epi32(leftHalf, ones); // 
+				const __m256i lt_count = _mm256_sub_epi32(count, _mm256_add_epi32(half, ones)); // count - (half + 1)
 				const __m256i lt_binIdx = _mm256_add_epi32(_mm256_slli_epi32(binIndex, 1), ones);
 
 				// false branch
 				const __m256i gt_eq_binIndex = _mm256_slli_epi32(binIndex, 1);
 
 				// mix with result
-				binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, lt_count_mask);
-				count = masked_blend(lt_count, half, lt_count_mask);
-				left = masked_blend(lt_left, left, lt_count_mask);
+				binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, ltMask);
+				count = masked_blend(lt_count, half, ltMask);
+				left = masked_blend(lt_left, left, ltMask);
 
 				// update non finished lanes
 				positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
@@ -358,36 +344,32 @@ inline void avx256(const AlignedIntArray &hayStack, const AlignedIntArray &needl
 
 			// some lanes can finish the search earlier, keep mask of non finished searches
 			__m256i positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
+
 			while (_mm256_movemask_ps(_mm256_castsi256_ps(positiveCountMask)) != 0) {
 				// const int half = count / 2;
 				const __m256i half = _mm256_srli_epi32(count, 1);
 
-				// const int testValue = step < stepCount ? bin[binIdx] : hayStack[left + half];
-				__m256i testValue;
+				// const int testValue = hayStack[left + half];
 				const __m256i leftHalf = _mm256_add_epi32(left, half);
-				const __m256i safeArrayIndex = masked_blend(leftHalf, zeros, positiveCountMask);
-				testValue = _mm256_i32gather_epi32(haystackPtr, safeArrayIndex, sizeof(int));
-
+				const __m256i testValue = _mm256_i32gather_epi32(haystackPtr, leftHalf, sizeof(int));
 
 				// if (testValue < value) {
 				const __m256i gt = _mm256_cmpgt_epi32(testValue, value);
 				const __m256i eq = _mm256_cmpeq_epi32(testValue, value);
 				const __m256i ltMask = _mm256_andnot_si256(_mm256_castps_si256(_mm256_or_ps(_mm256_castsi256_ps(gt), _mm256_castsi256_ps(eq))), neg1);
-				// mask by non finished lanes
-				const __m256i lt_count_mask = _mm256_castps_si256(_mm256_and_ps(_mm256_castsi256_ps(ltMask), _mm256_castsi256_ps(positiveCountMask)));
 
 				// true branch
-				const __m256i lt_left = _mm256_add_epi32(leftHalf, ones);
-				const __m256i lt_count = _mm256_sub_epi32(count, _mm256_add_epi32(half, ones));
+				const __m256i lt_left = _mm256_add_epi32(leftHalf, ones); // 
+				const __m256i lt_count = _mm256_sub_epi32(count, _mm256_add_epi32(half, ones)); // count - (half + 1)
 				const __m256i lt_binIdx = _mm256_add_epi32(_mm256_slli_epi32(binIndex, 1), ones);
 
 				// false branch
 				const __m256i gt_eq_binIndex = _mm256_slli_epi32(binIndex, 1);
 
 				// mix with result
-				binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, lt_count_mask);
-				count = masked_blend(lt_count, half, lt_count_mask);
-				left = masked_blend(lt_left, left, lt_count_mask);
+				binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, ltMask);
+				count = masked_blend(lt_count, half, ltMask);
+				left = masked_blend(lt_left, left, ltMask);
 
 				// update non finished lanes
 				positiveCountMask = _mm256_cmpgt_epi32(count, zeros);

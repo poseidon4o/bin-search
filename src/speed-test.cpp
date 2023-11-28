@@ -14,7 +14,7 @@
 #include "utils.hpp"
 #include "solution-picker.hpp"
 
-const int HEAP_SIZE = (1 << 14) + 1;
+const int HEAP_SIZE = (1 << 24) + 1;
 
 
 int main() {

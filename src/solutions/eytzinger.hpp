@@ -2,8 +2,9 @@
 
 #include "utils.hpp"
 
+template <int BinStepCount>
 inline void eytzingerSearch(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
-	const int stepCount = 10;
+	const int stepCount = BinStepCount;
 	int *allocBin = allocator.alloc<int>((1 << stepCount) - 1);
 	int *bin = allocBin - 1;
 	precomputeBin(hayStack, hayStack.count, bin, stepCount);
@@ -42,8 +43,9 @@ inline void eytzingerSearch(const AlignedIntArray &hayStack, const AlignedIntArr
 	allocator.freeAll();
 }
 
+template <int BinStepCount>
 inline void eytzingerSearchRangeCheck(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
-	const int stepCount = 10;
+	const int stepCount = BinStepCount;
 	int *allocBin = allocator.alloc<int>((1 << stepCount) - 1);
 	int *bin = allocBin - 1;
 	precomputeBin(hayStack, hayStack.count, bin, stepCount);
