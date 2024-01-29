@@ -95,15 +95,15 @@ struct {
 	int qCount;
 	DataType type;
 } testInfos[] = {
-	{1 << 26, 1 << 16, uniform},
-	{1 << 26, 1 << 16, normal},
-	{1 << 20, 1 << 18, minMax},
-	{1 << 20, 1 << 18, mostOut},
-	{1 << 26, 100, uniform},
-	{1 << 16, 1 << 16, allSame},
-	{1 << 16, 1 << 16, allDifferent},
-	{ 1 << 18, 1 << 16, allSame},
-	{ 1 << 18, 1 << 10, allSame},
+	/*1*/ {1 << 26, 1 << 16, uniform},
+	/*2*/ {1 << 26, 1 << 16, normal},
+	/*3*/ {1 << 20, 1 << 18, minMax},
+	/*4*/ {1 << 20, 1 << 18, mostOut},
+	/*5*/ {1 << 26, 100, uniform},
+	/*6*/ {1 << 20, 1 << 16, allSame},
+	/*7*/ {1 << 20, 1 << 16, allDifferent},
+	/*8*/ { 1 << 20, 1 << 16, allSame},
+	/*9*/ { 1 << 20, 1 << 10, allSame},
 };
 
 bool generateInputFiles(bool forceRecreate = false) {
@@ -139,6 +139,6 @@ bool generateInputFiles(bool forceRecreate = false) {
 }
 
 int main() {
-	generateInputFiles();
+	generateInputFiles(true);
 	return 0;
 }

@@ -61,7 +61,7 @@ int main() {
 		++testCaseCount;
 	}
 
-	printf("+ Speed tests for %s ... \n", TEST_NAME);
+	printf("Speed tests for %s ... \n", TEST_NAME);
 
 	for (int r = 0; r < testCaseCount; r++) {
 		AlignedArrayPtr<int> hayStack;
@@ -74,8 +74,8 @@ int main() {
 			continue;
 		}
 
-		const int testRepeat = std::min<int64_t>(1000ll, searches / hayStack.getCount());
-		printf("Running speed test for %s, %d repeats ", fname, testRepeat);
+		const int testRepeat = 200;
+		//printf("Running speed test for %s, %d repeats ", fname, testRepeat);
 
 		AlignedArrayPtr<int> indices(needles.getCount());
 		AlignedArrayPtr<uint8_t> heap(HEAP_SIZE);
@@ -91,7 +91,8 @@ int main() {
 			t0 = timer_nsec();
 			for (int test = 0; test < testRepeat; ++test) {
 				const uint64_t start = timer_nsec();
-				binarySearch(hayStack, needles, indices);
+                                binarySearch(
+                                    hayStack, needles, indices);
 				const uint64_t end = timer_nsec();
 				bestBinary = std::min(bestBinary, end - start);
 			}
@@ -114,7 +115,7 @@ int main() {
 		}
 
 		const double totalBetter = (double(t1 - t0) * 1e-9) / testRepeat;
-		printf("speedup best [%f] average [%f]\n", double(bestBinary) / bestBetter, double(totalBinary) / totalBetter);
+		printf("Test %d best speedup [%f] average speedup [%f]\n", r + 1, double(bestBinary) / bestBetter, double(totalBinary) / totalBetter);
 	}
 	return 0;
 }
