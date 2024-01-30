@@ -95,8 +95,8 @@ int main() {
 			t0 = timer_nsec();
 			for (int test = 0; test < testRepeat; ++test) {
 				const uint64_t start = timer_nsec();
-                                binarySearch(
-                                    hayStack, needles, indices);
+                stlLowerBound(
+                                    hayStack, needles, indices, allocator);
 				const uint64_t end = timer_nsec();
 				bestBinary = std::min(bestBinary, end - start);
 			}
@@ -119,7 +119,7 @@ int main() {
 		}
 
 		const double totalBetter = (double(t1 - t0) * 1e-9) / testRepeat;
-		printf("Test %d best speedup [%f] average speedup [%f]\n", r + 1, double(bestBinary) / bestBetter, double(totalBinary) / totalBetter);
+		printf("Test %d compare fastest [%f] compare average [%f]\n", r + 1, double(bestBinary) / bestBetter, double(totalBinary) / totalBetter);
 	}
 	return 0;
 }

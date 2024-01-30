@@ -5,7 +5,7 @@
 #include "solutions/eytzinger.hpp"
 #include "solutions/stl.hpp"
 
-#define TEST_SEARCH avx256EytzingerRangeCheck<15, 32>
+#define TEST_SEARCH eytzingerSearch<15>
 
 #define STRINGIZE2(a) #a
 #define STRINGIZE(a) STRINGIZE2(a)

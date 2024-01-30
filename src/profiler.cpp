@@ -24,7 +24,7 @@ bool profile(int index) {
 	indices.memset(NOT_SEARCHED);
 	allocator.zeroAll();
 
-	for (int c = 0; c < 1000; c++) {
+	for (int c = 0; c < 10000; c++) {
 		TEST_SEARCH(hayStack, needles, indices, allocator);
 	}
 }

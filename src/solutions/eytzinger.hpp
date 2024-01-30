@@ -1,9 +1,15 @@
 #pragma once
 
 #include "utils.hpp"
+#include "stl.hpp"
 
 template <int BinStepCount>
-inline void eytzingerSearch(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
+static void eytzingerSearch(
+    const AlignedIntArray &hayStack,
+    const AlignedIntArray &needles,
+    AlignedIntArray &indices,
+    StackAllocator &allocator)
+{
 	const int stepCount = BinStepCount;
 	int *allocBin = allocator.alloc<int>((1 << stepCount) - 1);
 	int *bin = allocBin - 1;
@@ -44,7 +50,10 @@ inline void eytzingerSearch(const AlignedIntArray &hayStack, const AlignedIntArr
 }
 
 template <int BinStepCount>
-inline void eytzingerSearchRangeCheck(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
+static void eytzingerSearchRangeCheck(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
+    if (needles.getCount() <= 1024) {
+        return stlLowerBound(hayStack, needles, indices, allocator);
+    }
 	const int stepCount = BinStepCount;
 	int *allocBin = allocator.alloc<int>((1 << stepCount) - 1);
 	int *bin = allocBin - 1;

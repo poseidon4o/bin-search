@@ -7,7 +7,7 @@
 /// @param hayStack - the input data that will be searched in
 /// @param needles - the values that will be searched
 /// @param indices - the indices of the needles (or -1 if the needle is not found)
-inline void binarySearch(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices) {
+static void binarySearch(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices) {
 	for (int c = 0; c < needles.getCount(); c++) {
 		const int value = needles[c];
 
@@ -33,6 +33,11 @@ inline void binarySearch(const AlignedIntArray &hayStack, const AlignedIntArray 
 	}
 }
 
-inline void binarySearch(const AlignedIntArray &hayStack, const AlignedIntArray &needles, AlignedIntArray &indices, StackAllocator &allocator) {
+static void binarySearch(
+    const AlignedIntArray &hayStack,
+    const AlignedIntArray &needles,
+    AlignedIntArray &indices,
+    StackAllocator &allocator)
+{
 	binarySearch(hayStack, needles, indices);
 }

@@ -1,10 +1,12 @@
 #pragma once
 
+#include "utils.hpp"
+
 #ifndef __clang__
 #include <immintrin.h>
 #endif
 
-#include "utils.hpp"
+#include <algorithm>
 
 namespace {
 inline __m256i masked_blend(__m256i a, __m256i b, __m256i mask)
@@ -13,7 +15,7 @@ inline __m256i masked_blend(__m256i a, __m256i b, __m256i mask)
         _mm256_castsi256_ps(b), _mm256_castsi256_ps(a), _mm256_castsi256_ps(mask)));
 }
 
-inline void serialFinishSIMDEytzinger(
+static void serialFinishSIMDEytzinger(
     int c,
     int needlesCount,
     int stepCount,
@@ -109,7 +111,7 @@ inline void serialFinishSIMD(
 } // namespace
 
 template <int BinStepCount, int InRangeQueueSize>
-inline void avx256EytzingerRangeCheck(
+static void avx256EytzingerRangeCheck(
     const AlignedIntArray &hayStack,
     const AlignedIntArray &needles,
     AlignedIntArray &indices,
@@ -161,8 +163,6 @@ inline void avx256EytzingerRangeCheck(
             int index;
         };
         alignas(32) Item queue[InRangeQueueSize];
-        /*alignas(32) int needleQueueChunks[InRangeQueueSize];
-        alignas(32) int needleIndicesChunks[InRangeQueueSize];*/
 
         while (c + InRangeQueueSize < needlesCount) {
             int saved = c;
@@ -176,9 +176,6 @@ inline void avx256EytzingerRangeCheck(
                 if (candidate >= lowCut && candidate <= highCut) {
                     queue[q].needle = candidate;
                     queue[q].index = c;
-                    // needleQueueChunks[q] = candidate;
-                    // needleIndicesChunks[q] = c; // keep from where this
-                    // needle is loaded
                     q++;
                 } else {
                     indices[c] = NOT_FOUND;
@@ -196,11 +193,6 @@ inline void avx256EytzingerRangeCheck(
             });
 
             for (int chunk = 0; chunk < InRangeQueueSize / 8; chunk++) {
-                // const int *needleQueue = needleQueueChunks + chunk * 8;
-                // const int *needleIndices = needleIndicesChunks + chunk * 8;
-                // const __m256i value =
-                // _mm256_loadu_si256(reinterpret_cast<const __m256i
-                // *>(needleQueue));
                 const __m256i value = _mm256_i32gather_epi32(
                     reinterpret_cast<int const *>(queue + 8 * chunk),
                     _mm256_set_epi32(14, 12, 10, 8, 6, 4, 2, 0),
@@ -285,7 +277,6 @@ inline void avx256EytzingerRangeCheck(
                 alignas(32) int writeBack[8];
                 _mm256_store_si256(reinterpret_cast<__m256i *>(writeBack), storeResult);
                 for (int r = 0; r < 8; r++) {
-                    // indicesPtr[needleIndices[r]] = writeBack[r];
                     indicesPtr[queue[r + 8 * chunk].index] = writeBack[r];
                 }
             }
@@ -298,7 +289,7 @@ inline void avx256EytzingerRangeCheck(
 }
 
 template <int BinStepCount>
-inline void avx256Eytzinger(
+static void avx256Eytzinger(
     const AlignedIntArray &hayStack,
     const AlignedIntArray &needles,
     AlignedIntArray &indices,
@@ -399,7 +390,7 @@ inline void avx256Eytzinger(
     allocator.freeAll();
 }
 
-inline void avx256(
+static void avx256(
     const AlignedIntArray &hayStack,
     const AlignedIntArray &needles,
     AlignedIntArray &indices,
