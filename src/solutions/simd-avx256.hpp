@@ -110,7 +110,7 @@ inline void serialFinishSIMD(
 }
 } // namespace
 
-template <int BinStepCount, int InRangeQueueSize>
+template <int BinStepCount, int SortSimdBatchCount>
 static void avx256EytzingerRangeCheck(
     const AlignedIntArray &hayStack,
     const AlignedIntArray &needles,
@@ -149,12 +149,7 @@ static void avx256EytzingerRangeCheck(
     const __m256i neg1 = _mm256_set1_epi32(-1); // all true mask
     const __m256i haystackCountV = _mm256_set1_epi32(haystackCount);
 
-    int binSearchSteps = 0;
-    int remainingCount = haystackCount;
-    while (remainingCount > 0) {
-        ++binSearchSteps;
-        remainingCount /= 2;
-    }
+    const int binSearchSteps = int(log2(haystackCount)) + 1;
 
     if (useSIMD) {
 
@@ -162,16 +157,14 @@ static void avx256EytzingerRangeCheck(
             int needle;
             int index;
         };
-        alignas(32) Item queue[InRangeQueueSize];
+        const int sortQueSize = SortSimdBatchCount * 8;
+        alignas(32) Item queue[sortQueSize];
 
-        while (c + InRangeQueueSize < needlesCount) {
+        while (c + sortQueSize < needlesCount) {
             int saved = c;
             int q = 0;
 
-            // produce InRangeQueueSize needles not outside of haystack data
-            // range implements if (value < lowCut || value > highCut) { but for
-            // InRangeQueueSize values
-            while (q < InRangeQueueSize && c < needlesCount) {
+            while (q < sortQueSize && c < needlesCount) {
                 const int candidate = needles[c];
                 if (candidate >= lowCut && candidate <= highCut) {
                     queue[q].needle = candidate;
@@ -183,16 +176,16 @@ static void avx256EytzingerRangeCheck(
                 c++;
             }
             // not enough needles, give up and use non simd code to finish
-            if (q < InRangeQueueSize) {
+            if (q < sortQueSize) {
                 c = saved;
                 break;
             }
 
-            std::sort(queue, queue + InRangeQueueSize, [](const Item &a, const Item &b) {
+            std::sort(queue, queue + sortQueSize, [](const Item &a, const Item &b) {
                 return a.needle < b.needle;
             });
 
-            for (int chunk = 0; chunk < InRangeQueueSize / 8; chunk++) {
+            for (int chunk = 0; chunk < SortSimdBatchCount; chunk++) {
                 const __m256i value = _mm256_i32gather_epi32(
                     reinterpret_cast<int const *>(queue + 8 * chunk),
                     _mm256_set_epi32(14, 12, 10, 8, 6, 4, 2, 0),
@@ -319,6 +312,7 @@ static void avx256Eytzinger(
 
     if (useSIMD) {
         alignas(32) int needleQueue[8];
+        const int binSearchSteps = int(log2(haystackCount)) + 1;
 
         while (c + 8 < needlesCount) {
             memcpy(needleQueue, needles.get() + c, 8 * sizeof(needles[0]));
@@ -328,13 +322,41 @@ static void avx256Eytzinger(
             __m256i left = zeros;
             __m256i count = haystackCountV;
             __m256i binIndex = ones;
+
             int step = 0;
 
-            // some lanes can finish the search earlier, keep mask of non
-            // finished searches
-            __m256i positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
+            for (; step < stepCount; ++step) {
+                // const int half = count / 2;
+                const __m256i half = _mm256_srli_epi32(count, 1);
 
-            while (_mm256_movemask_ps(_mm256_castsi256_ps(positiveCountMask)) != 0) {
+                // const int testValue = step < stepCount ? bin[binIdx] :
+                // hayStack[left + half];
+                const __m256i leftHalf = _mm256_add_epi32(left, half);
+                const __m256i testValue = _mm256_i32gather_epi32(bin, binIndex, sizeof(int));
+
+                // if (testValue < value) {
+                const __m256i gt = _mm256_cmpgt_epi32(testValue, value);
+                const __m256i eq = _mm256_cmpeq_epi32(testValue, value);
+                const __m256i ltMask = _mm256_andnot_si256(
+                    _mm256_castps_si256(
+                        _mm256_or_ps(_mm256_castsi256_ps(gt), _mm256_castsi256_ps(eq))),
+                    neg1);
+
+                // true branch
+                const __m256i lt_left = _mm256_add_epi32(leftHalf, ones);
+                const __m256i lt_count = _mm256_sub_epi32(count, _mm256_add_epi32(half, ones));
+                const __m256i lt_binIdx = _mm256_add_epi32(_mm256_slli_epi32(binIndex, 1), ones);
+
+                // false branch
+                const __m256i gt_eq_binIndex = _mm256_slli_epi32(binIndex, 1);
+
+                // mix with result
+                binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, ltMask);
+                count = masked_blend(lt_count, half, ltMask);
+                left = masked_blend(lt_left, left, ltMask);
+            }
+
+            for (; step < binSearchSteps; ++step) {
                 // const int half = count / 2;
                 const __m256i half = _mm256_srli_epi32(count, 1);
 
@@ -364,9 +386,6 @@ static void avx256Eytzinger(
                 binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, ltMask);
                 count = masked_blend(lt_count, half, ltMask);
                 left = masked_blend(lt_left, left, ltMask);
-
-                // update non finished lanes
-                positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
             }
 
             const __m256i haystackLeft = _mm256_i32gather_epi32(haystackPtr, left, sizeof(int));
@@ -411,22 +430,15 @@ static void avx256(
     const __m256i haystackCountV = _mm256_set1_epi32(haystackCount);
 
     if (useSIMD) {
-        alignas(32) int needleQueue[8];
+        const int binSearchSteps = int(log2(haystackCount)) + 1;
 
         while (c + 8 < needlesCount) {
-            memcpy(needleQueue, needles.get() + c, 8 * sizeof(needles[0]));
-
             const __m256i value =
-                _mm256_loadu_si256(reinterpret_cast<const __m256i *>(needleQueue));
+                _mm256_loadu_si256(reinterpret_cast<const __m256i *>(needles.get() + c));
             __m256i left = zeros;
             __m256i count = haystackCountV;
-            __m256i binIndex = ones;
 
-            // some lanes can finish the search earlier, keep mask of non
-            // finished searches
-            __m256i positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
-
-            while (_mm256_movemask_ps(_mm256_castsi256_ps(positiveCountMask)) != 0) {
+            for (int step = 0; step < binSearchSteps; ++step) {
                 // const int half = count / 2;
                 const __m256i half = _mm256_srli_epi32(count, 1);
 
@@ -447,18 +459,9 @@ static void avx256(
                 const __m256i lt_left = _mm256_add_epi32(leftHalf, ones); //
                 const __m256i lt_count =
                     _mm256_sub_epi32(count, _mm256_add_epi32(half, ones)); // count - (half + 1)
-                const __m256i lt_binIdx = _mm256_add_epi32(_mm256_slli_epi32(binIndex, 1), ones);
 
-                // false branch
-                const __m256i gt_eq_binIndex = _mm256_slli_epi32(binIndex, 1);
-
-                // mix with result
-                binIndex = masked_blend(lt_binIdx, gt_eq_binIndex, ltMask);
                 count = masked_blend(lt_count, half, ltMask);
                 left = masked_blend(lt_left, left, ltMask);
-
-                // update non finished lanes
-                positiveCountMask = _mm256_cmpgt_epi32(count, zeros);
             }
 
             const __m256i haystackLeft = _mm256_i32gather_epi32(haystackPtr, left, sizeof(int));
@@ -466,13 +469,7 @@ static void avx256(
             const __m256i eqMask = _mm256_cmpeq_epi32(value, haystackLeft);
             const __m256i storeResult = masked_blend(left, neg1, eqMask);
 
-            // search values are not consecutive, scatter according to their
-            // indices there is no scatter_epi32 in AVX/AVX2
-            alignas(32) int writeBack[8];
-            _mm256_store_si256(reinterpret_cast<__m256i *>(writeBack), storeResult);
-            for (int r = 0; r < 8; r++) {
-                indicesPtr[r + c] = writeBack[r];
-            }
+            _mm256_store_si256(reinterpret_cast<__m256i *>(indicesPtr + c), storeResult);
             c += 8;
         }
     }
