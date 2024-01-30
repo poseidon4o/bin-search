@@ -102,8 +102,8 @@ struct {
 	/*5*/ {1 << 26, 100, uniform},
 	/*6*/ {1 << 20, 1 << 16, allSame},
 	/*7*/ {1 << 20, 1 << 16, allDifferent},
-	/*8*/ { 1 << 20, 1 << 16, allSame},
-	/*9*/ { 1 << 20, 1 << 10, allSame},
+	/*8*/ {1 << 20, 1 << 16, allSame},
+	/*9*/ {1 << 20, 1 << 10, allSame},
 };
 
 bool generateInputFiles(bool forceRecreate = false) {

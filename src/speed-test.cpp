@@ -18,11 +18,11 @@ const int HEAP_SIZE = (1 << 24) + 1;
 
 
 int main() {
-	
 	printf("+ Correctness tests ... \n");
 
 	const int64_t searches = 400ll * (1 << 26);
 
+	bool failedTests = false;
 	// enumerate and run correctness test
 	int testCaseCount = 0;
 	for (int r = 0; /*no-op*/; r++) {
@@ -47,18 +47,22 @@ int main() {
 			TEST_SEARCH(hayStack, needles, indices, allocator);
 			if (verify(hayStack, needles, indices) != -1) {
 				printf("Failed to verify base betterSearch!\n");
-				return -1;
+                failedTests = true;
 			}
 
 			indices.memset(NOT_SEARCHED);
 			binarySearch(hayStack, needles, indices);
 			if (verify(hayStack, needles, indices) != -1) {
 				printf("Failed to verify base binarySearch!\n");
-				return -1;
+                failedTests = true;
 			}
 		}
 		printf("OK\n");
 		++testCaseCount;
+	}
+
+	if (failedTests) {
+        return -1;
 	}
 
 	printf("Speed tests for %s ... \n", TEST_NAME);
